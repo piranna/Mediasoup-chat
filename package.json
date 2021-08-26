@@ -1,0 +1,36 @@
+{
+  "name": "mediasoup-chat",
+  "version": "0.0.0",
+  "description": "PoC of using Mediasoup DataChannels as alternative to WebSockets",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "npm start -- --log-level info --pretty-logs",
+    "start": "fastify start index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/piranna/Mediasoup-chat.git"
+  },
+  "keywords": [
+    "Mediasoup",
+    "chat",
+    "WebSockets",
+    "DataChannels",
+    "broadcast",
+    "RPC",
+    "socket.io"
+  ],
+  "author": "Jesús Leganés-Combarro 'piranna' <piranna@gmail.com>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/piranna/Mediasoup-chat/issues"
+  },
+  "homepage": "https://github.com/piranna/Mediasoup-chat#readme",
+  "dependencies": {
+    "fastify-cli": "^2.13.0",
+    "fastify-static": "^4.2.3",
+    "mediasoup": "^3.8.3"
+  }
+}

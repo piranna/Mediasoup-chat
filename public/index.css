@@ -1,0 +1,21 @@
+body {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  margin: 0px;
+}
+
+#controls {
+  display: flex;
+}
+
+#messages {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  justify-content: flex-end;
+}
+
+#message {
+  flex-grow: 1;
+}
