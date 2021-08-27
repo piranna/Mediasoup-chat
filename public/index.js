@@ -106,11 +106,11 @@ async function onProduceData(
 }
 
 
-// Get router RTP capabilities
-const routerRtpCapabilities = await request('/routerRtpCapabilities')
-
-// Load the device with the router RTP capabilities
+// Create a new mediasoup Device.
 const device = new Device();
+
+// Get the Router RTP capabilities and apply them, although we don't use them.
+const routerRtpCapabilities = await request('/routerRtpCapabilities')
 await device.load({ routerRtpCapabilities });
 
 const {dataProducer, dataConsumer} = await Promise.all([
@@ -148,5 +148,9 @@ message.addEventListener("keyup", function({key})
 
 dataConsumer.on('message', function(data)
 {
-  messages.appendChild(document.createTextNode(data))
+  const span = document.createElement('span')
+
+  span.appendChild(document.createTextNode(data))
+
+  messages.appendChild(span)
 })

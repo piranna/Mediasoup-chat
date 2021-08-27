@@ -2,7 +2,35 @@ import fastifyStatic from 'fastify-static'
 import {createWorker} from 'mediasoup'
 
 
-export default async function routes (fastify, options) {
+const connectSchema =
+{
+  schema: {
+    body: {
+      type: 'object',
+      properties: {
+        fingerprints: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              algorithm: { type: 'string' },
+              value: { type: 'string' },
+            },
+            required: ['algorithm', 'value'],
+          },
+        },
+        role: { type: 'string' }
+      },
+      required: ['fingerprints']
+    },
+    response: {
+      204: {}
+    }
+  }
+}
+
+
+export default async function routes (fastify, {announcedIp}) {
   //
   // Serve static files
   //
@@ -29,50 +57,38 @@ export default async function routes (fastify, options) {
   })
 
   // Create a WebRtcTransport in the Mediasoup Router
-  fastify.post('/', async (request, reply) => {
+  fastify.post('/', async function(request, reply)
+  {
     const transport = await router.createWebRtcTransport(
-      {enableSctp: true, listenIps: ['127.0.0.1']}
+      {
+        enableSctp: true,
+        listenIps: [
+          {
+            announcedIp,
+            ip: fastify.server.address().address
+          }
+        ]
+      }
     )
 
-    transports[transport.id] = transport
+    const {
+      dtlsParameters, iceCandidates, iceParameters, id, observer, sctpParameters
+    } = transport
 
-    return {
-      dtlsParameters: transport.dtlsParameters,
-      iceCandidates: transport.iceCandidates,
-      iceParameters: transport.iceParameters,
-      id: transport.id,
-      sctpParameters: transport.sctpParameters,
-    }
+    transports[id] = transport
+
+    observer.on('close', function()
+    {
+      delete transports[id]
+    })
+
+    return {dtlsParameters, iceCandidates, iceParameters, id, sctpParameters}
   })
 
   // Transport onConnect event
   fastify.post(
     '/:transportId/connect',
-    {
-      schema: {
-        body: {
-          type: 'object',
-          properties: {
-            fingerprints: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  algorithm: { type: 'string' },
-                  value: { type: 'string' },
-                },
-                required: ['algorithm', 'value'],
-              },
-            },
-            role: { type: 'string' }
-          },
-          required: ['fingerprints']
-        },
-        response: {
-          204: {}
-        }
-      }
-    },
+    connectSchema,
     async function ({body: dtlsParameters, params: {transportId}}, reply)
     {
       const transport = transports[transportId]
@@ -93,11 +109,16 @@ export default async function routes (fastify, options) {
 
       const dataProducer = await transport.produceData(body);
 
-      dataProducers[dataProducer.id] = dataProducer
+      const {id, observer} = dataProducer
 
-      return {
-        id: dataProducer.id
-      }
+      dataProducers[id] = dataProducer
+
+      observer.on('close', function()
+      {
+        delete dataProducers[id]
+      })
+
+      return {id}
     }
   )
 
