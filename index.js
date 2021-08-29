@@ -96,7 +96,7 @@ export default async function routes (fastify, {announcedIp}) {
   const router = await worker.createRouter()
 
   const transports = {}
-  const dataProducers = {}
+  const directTransportDataConsumers = {}
 
   // Get Router RTP capabilities
   fastify.get('/routerRtpCapabilities', async function(request, reply)
@@ -160,11 +160,16 @@ export default async function routes (fastify, {announcedIp}) {
 
       const {id, observer} = dataProducer
 
-      dataProducers[id] = dataProducer
+      const directTransport = await router.createDirectTransport()
+      const directTransportDataConsumer = await directTransport.consumeData(
+        {dataProducerId: id}
+      )
+
+      directTransportDataConsumers[id] = directTransportDataConsumer
 
       observer.on('close', function()
       {
-        delete dataProducers[id]
+        delete directTransportDataConsumers[id]
       })
 
       return {id}
@@ -180,10 +185,36 @@ export default async function routes (fastify, {announcedIp}) {
       const transport = transports[transportId]
       if (!transport) return reply.code(404).send('Transport not found')
 
-      const dataProducer = dataProducers[dataProducerId]
-      if (!dataProducer) return reply.code(404).send('Producer not found')
+      const directTransportDataConsumer = directTransportDataConsumers[
+        dataProducerId
+      ]
+      if (!directTransportDataConsumer)
+        return reply.code(404).send('Producer not found')
 
-      const dataConsumer = await transport.consumeData({dataProducerId})
+      const directTransport = await router.createDirectTransport()
+      const directTransportDataProducer = await directTransport.produceData()
+
+      const dataConsumer = await transport.consumeData(
+        {dataProducerId: directTransportDataProducer.id}
+      )
+
+      const onMessage = directTransportDataProducer.send.bind(
+        directTransportDataProducer
+      )
+      // function onMessage(message, ppid)
+      // {
+      //   console.info(message, ppid)
+      //   directTransportDataProducer.send(message, ppid)
+      // }
+
+      directTransportDataConsumer
+        .on('message', onMessage)
+        .observer.once(
+          'close',
+          directTransportDataConsumer.off.bind(
+            directTransportDataConsumer, 'message', onMessage
+          )
+        )
 
       return {
         dataProducerId      : dataConsumer.dataProducerId,
