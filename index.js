@@ -29,15 +29,63 @@ const connectSchema =
   }
 }
 
+const consumeDataSchema =
+{
+  schema: {
+    body: {
+      type: 'string'
+    },
+    params: {
+      type: 'object',
+      properties: {
+        transportId: {
+          type: 'string'
+        }
+      }
+    }
+  }
+}
+
+const produceDataSchema =
+{
+  schema: {
+    body: {
+      type: 'object',
+      properties: {
+        appData: {
+          type: 'object'
+        },
+        label: {
+          type: 'string'
+        },
+        protocol: {
+          type: 'string'
+        },
+        sctpStreamParameters: {
+          type: 'object'
+        }
+      }
+    },
+    params: {
+      type: 'object',
+      properties: {
+        transportId: {
+          type: 'string'
+        }
+      }
+    }
+  }
+}
+
+const {pathname: root} = new URL('public', import.meta.url)
+
 
 export default async function routes (fastify, {announcedIp}) {
   //
   // Serve static files
   //
 
-  fastify.register(fastifyStatic, {
-    root: new URL('public', import.meta.url).pathname,
-  })
+  fastify.register(fastifyStatic, {root})
 
 
   //
@@ -99,9 +147,10 @@ export default async function routes (fastify, {announcedIp}) {
     }
   )
 
-  // produceData
+  // produceData (publish)
   fastify.post(
     '/:transportId/produceData',
+    produceDataSchema,
     async function ({body, params: {transportId}}, reply)
     {
       const transport = transports[transportId]
@@ -122,9 +171,10 @@ export default async function routes (fastify, {announcedIp}) {
     }
   )
 
-  // consumeData
+  // consumeData (subscribe)
   fastify.post(
     '/:transportId/consumeData',
+    consumeDataSchema,
     async function({body: dataProducerId, params: {transportId}}, reply)
     {
       const transport = transports[transportId]
