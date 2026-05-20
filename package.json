@@ -29,8 +29,8 @@
   },
   "homepage": "https://github.com/piranna/Mediasoup-chat#readme",
   "dependencies": {
-    "fastify-cli": "^2.13.0",
-    "fastify-static": "^4.2.3",
-    "mediasoup": "^3.8.3"
+    "fastify-cli": "^8.0.0",
+    "fastify-static": "^4.7.0",
+    "mediasoup": "^3.19.22"
   }
 }

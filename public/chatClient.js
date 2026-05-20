@@ -1,5 +1,5 @@
-import {getPayloadError} from 'https://cdn.esm.sh/v45/getpayload@0.0.1/es2021/getpayload.js';
-import {Device} from 'https://cdn.esm.sh/v45/mediasoup-client@3.6.37/es2021/lib/Device.js';
+import { getPayloadError } from "https://esm.sh/getpayload@0.0.1/es2022/getpayload.mjs";
+import { Device } from "https://esm.sh/mediasoup-client@3.20.0/es2022/lib/Device.mjs";
 
 
 function request(path, body)
