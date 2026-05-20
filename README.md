@@ -389,3 +389,28 @@ This architecture makes sense when:
 4. You can justify the added complexity for your use case
 
 For everything else, WebSockets provide superior simplicity-to-capability ratio.
+
+## Additional Use Cases
+
+Beyond the use cases already described, this architecture can be useful in
+specific scenarios where media and data should share the same transport and
+session model:
+
+- **Real-time control channels for media sessions**: sending synchronized
+  control events (mute/unmute, stage requests, role changes, moderation
+  commands) over DataChannels attached to the same participant context as A/V
+  streams
+- **Interactive metadata overlays**: timed markers, reactions,
+  [Kahoot!](https://kahoot.com/)-style quiz events, or telemetry linked to live
+  streams where low-latency correlation with media time is valuable
+- **Distributed media orchestration**: inter-node coordination between Mediasoup
+  workers/routers for topology updates, stream routing hints, or federation
+  control messages
+- **Hybrid media applications**: collaborative rooms where whiteboard/control
+  state, lightweight RPC, and stream-related events are kept in one Mediasoup
+  operational domain
+
+As a rule of thumb, this architecture is most defensible when **data semantics
+are tightly coupled to media session semantics**. If data is generic
+application-level messaging, WebSockets (or SSE + HTTP) usually remain the
+simpler and more cost-effective choice.
