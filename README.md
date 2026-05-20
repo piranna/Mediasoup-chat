@@ -3,6 +3,8 @@
 PoC of using [Mediasoup](https://mediasoup.org/) DataChannels as alternative to
 WebSockets
 
+[![DOI](https://zenodo.org/badge/399348833.svg)](https://doi.org/10.5281/zenodo.20312990)
+
 This repo contains a proof of concept about how to use Mediasoup SCTP
 connections (DataChannels) as alternative to WebSockets. This is done mostly for
 educational purposes to understand how to use Mediasoup
