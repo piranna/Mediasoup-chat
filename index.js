@@ -1,228 +1,219 @@
-import fastifyStatic from 'fastify-static'
-import {createWorker} from 'mediasoup'
+import fastifyStatic from "fastify-static";
+import { createWorker } from "mediasoup";
 
-
-const connectSchema =
-{
+const connectSchema = {
   schema: {
     body: {
-      type: 'object',
+      type: "object",
       properties: {
         fingerprints: {
-          type: 'array',
+          type: "array",
           items: {
-            type: 'object',
+            type: "object",
             properties: {
-              algorithm: { type: 'string' },
-              value: { type: 'string' },
+              algorithm: { type: "string" },
+              value: { type: "string" },
             },
-            required: ['algorithm', 'value'],
+            required: ["algorithm", "value"],
           },
         },
-        role: { type: 'string' }
+        role: { type: "string" },
       },
-      required: ['fingerprints']
+      required: ["fingerprints"],
     },
     response: {
-      204: {}
-    }
-  }
-}
+      204: {},
+    },
+  },
+};
 
-const consumeDataSchema =
-{
+const consumeDataSchema = {
   schema: {
     body: {
-      type: 'string'
+      type: "string",
     },
     params: {
-      type: 'object',
+      type: "object",
       properties: {
-        transportId: {
-          type: 'string'
-        }
-      }
-    }
-  }
-}
+        webRtcTransportId: {
+          type: "string",
+        },
+      },
+    },
+  },
+};
 
-const produceDataSchema =
-{
+const produceDataSchema = {
   schema: {
     body: {
-      type: 'object',
+      type: "object",
       properties: {
         appData: {
-          type: 'object'
+          type: "object",
         },
         label: {
-          type: 'string'
+          type: "string",
         },
         protocol: {
-          type: 'string'
+          type: "string",
         },
         sctpStreamParameters: {
-          type: 'object'
-        }
-      }
+          type: "object",
+        },
+      },
     },
     params: {
-      type: 'object',
+      type: "object",
       properties: {
-        transportId: {
-          type: 'string'
-        }
-      }
-    }
-  }
-}
+        webRtcTransportId: {
+          type: "string",
+        },
+      },
+    },
+  },
+};
 
-const {pathname: root} = new URL('public', import.meta.url)
+const { pathname: root } = new URL("public", import.meta.url);
 
-
-export default async function routes (fastify, {announcedIp}) {
+export default async function routes(fastify, { announcedIp }) {
   //
   // Serve static files
   //
 
-  fastify.register(fastifyStatic, {root})
-
+  fastify.register(fastifyStatic, { root });
 
   //
   // Signaling endpoints
   //
 
-  const worker = await createWorker()
-  const router = await worker.createRouter()
+  const worker = await createWorker();
+  const router = await worker.createRouter();
 
-  const transports = {}
-  const directTransportDataConsumers = {}
+  const directTransportDataConsumers = {};
+  const webRtcTransports = {};
 
   // Get Router RTP capabilities
-  fastify.get('/routerRtpCapabilities', async function(request, reply)
-  {
-    return router.rtpCapabilities
-  })
+  fastify.get("/routerRtpCapabilities", async function () {
+    return router.rtpCapabilities;
+  });
 
   // Create a WebRtcTransport in the Mediasoup Router
-  fastify.post('/', async function(request, reply)
-  {
-    const transport = await router.createWebRtcTransport(
-      {
-        enableSctp: true,
-        listenIps: [
-          {
-            announcedIp,
-            ip: fastify.server.address().address
-          }
-        ]
-      }
-    )
+  fastify.post("/", async function () {
+    const webRtcTransport = await router.createWebRtcTransport({
+      enableSctp: true,
+      listenIps: [
+        {
+          announcedIp,
+          ip: fastify.server.address().address,
+        },
+      ],
+    });
 
     const {
-      dtlsParameters, iceCandidates, iceParameters, id, observer, sctpParameters
-    } = transport
+      dtlsParameters,
+      iceCandidates,
+      iceParameters,
+      id,
+      observer,
+      sctpParameters,
+    } = webRtcTransport;
 
-    transports[id] = transport
+    webRtcTransports[id] = webRtcTransport;
 
-    observer.on('close', function()
-    {
-      delete transports[id]
-    })
+    observer.on("close", function () {
+      delete webRtcTransports[id];
+    });
 
-    return {dtlsParameters, iceCandidates, iceParameters, id, sctpParameters}
-  })
+    return { dtlsParameters, iceCandidates, iceParameters, id, sctpParameters };
+  });
 
-  // Transport onConnect event
+  // WebRtcTransport onConnect event
   fastify.post(
-    '/:transportId/connect',
+    "/:webRtcTransportId/connect",
     connectSchema,
-    async function ({body: dtlsParameters, params: {transportId}}, reply)
-    {
-      const transport = transports[transportId]
-      if (!transport) return reply.code(404).send('Transport not found')
+    async function (
+      { body: dtlsParameters, params: { webRtcTransportId } },
+      reply,
+    ) {
+      const webRtcTransport = webRtcTransports[webRtcTransportId];
+      if (!webRtcTransport)
+        return reply.code(404).send("WebRtcTransport not found");
 
-      reply.code(204)
-      return transport.connect({dtlsParameters})
-    }
-  )
+      reply.code(204);
+
+      return await webRtcTransport.connect({ dtlsParameters });
+    },
+  );
 
   // produceData (publish)
   fastify.post(
-    '/:transportId/produceData',
+    "/:webRtcTransportId/produceData",
     produceDataSchema,
-    async function ({body, params: {transportId}}, reply)
-    {
-      const transport = transports[transportId]
-      if (!transport) return reply.code(404).send('Transport not found')
+    async function ({ body, params: { webRtcTransportId } }, reply) {
+      const webRtcTransport = webRtcTransports[webRtcTransportId];
+      if (!webRtcTransport)
+        return reply.code(404).send("WebRtcTransport not found");
 
-      const dataProducer = await transport.produceData(body);
+      const [{ id: dataProducerId, observer }, directTransport] =
+        await Promise.all([
+          webRtcTransport.produceData(body),
+          router.createDirectTransport(),
+        ]);
 
-      const {id, observer} = dataProducer
+      const directTransportDataConsumer = await directTransport.consumeData({
+        dataProducerId,
+      });
 
-      const directTransport = await router.createDirectTransport()
-      const directTransportDataConsumer = await directTransport.consumeData(
-        {dataProducerId: id}
-      )
+      directTransportDataConsumers[dataProducerId] =
+        directTransportDataConsumer;
 
-      directTransportDataConsumers[id] = directTransportDataConsumer
+      observer.on("close", function () {
+        delete directTransportDataConsumers[dataProducerId];
+      });
 
-      observer.on('close', function()
-      {
-        delete directTransportDataConsumers[id]
-      })
-
-      return {id}
-    }
-  )
+      return dataProducerId;
+    },
+  );
 
   // consumeData (subscribe)
   fastify.post(
-    '/:transportId/consumeData',
+    "/:webRtcTransportId/consumeData",
     consumeDataSchema,
-    async function({body: dataProducerId, params: {transportId}}, reply)
-    {
-      const transport = transports[transportId]
-      if (!transport) return reply.code(404).send('Transport not found')
+    async function (
+      { body: dataProducerId, params: { webRtcTransportId } },
+      reply,
+    ) {
+      const webRtcTransport = webRtcTransports[webRtcTransportId];
+      if (!webRtcTransport)
+        return reply.code(404).send("WebRtcTransport not found");
 
-      const directTransportDataConsumer = directTransportDataConsumers[
-        dataProducerId
-      ]
+      const directTransportDataConsumer =
+        directTransportDataConsumers[dataProducerId];
       if (!directTransportDataConsumer)
-        return reply.code(404).send('Producer not found')
+        return reply.code(404).send("Producer not found");
 
-      const directTransport = await router.createDirectTransport()
-      const directTransportDataProducer = await directTransport.produceData()
+      const directTransport = await router.createDirectTransport();
+      const directTransportDataProducer = await directTransport.produceData();
 
-      const dataConsumer = await transport.consumeData(
-        {dataProducerId: directTransportDataProducer.id}
-      )
+      const { id: dataProducerId, send } = directTransportDataProducer;
 
-      const onMessage = directTransportDataProducer.send.bind(
-        directTransportDataProducer
-      )
-      // function onMessage(message, ppid)
-      // {
-      //   console.info(message, ppid)
-      //   directTransportDataProducer.send(message, ppid)
-      // }
+      const { id, label, protocol, sctpStreamParameters } =
+        await webRtcTransport.consumeData({ dataProducerId });
+
+      const onMessage = send.bind(directTransportDataProducer);
 
       directTransportDataConsumer
-        .on('message', onMessage)
+        .on("message", onMessage)
         .observer.once(
-          'close',
+          "close",
           directTransportDataConsumer.off.bind(
-            directTransportDataConsumer, 'message', onMessage
-          )
-        )
+            directTransportDataConsumer,
+            "message",
+            onMessage,
+          ),
+        );
 
-      return {
-        dataProducerId      : dataConsumer.dataProducerId,
-        id                  : dataConsumer.id,
-        label               : dataConsumer.label,
-        protocol            : dataConsumer.protocol,
-        sctpStreamParameters: dataConsumer.sctpStreamParameters
-      }
-    }
-  )
+      return { dataProducerId, id, label, protocol, sctpStreamParameters };
+    },
+  );
 }
