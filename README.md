@@ -414,3 +414,48 @@ As a rule of thumb, this architecture is most defensible when **data semantics
 are tightly coupled to media session semantics**. If data is generic
 application-level messaging, WebSockets (or SSE + HTTP) usually remain the
 simpler and more cost-effective choice.
+
+## Future Work
+
+### Migrate Codebase to TypeScript
+
+This PoC intentionally uses plain JavaScript to minimize setup and keep the
+focus on Mediasoup concepts. A natural next step is migrating both server and
+client code to TypeScript to improve correctness and maintainability.
+
+Main expected improvements:
+
+- **Typed signaling contracts**: shared interfaces for all REST payloads
+  (`connect`, `produceData`, `consumeData`) to prevent schema drift between
+  client and server
+- **Safer Mediasoup API usage**: explicit typing for transport lifecycle,
+  producer/consumer maps, and event handlers
+- **Refactorability**: stronger editor tooling, symbol navigation, and safer
+  large-scale refactors
+- **Documentation by types**: the architecture becomes self-describing through
+  domain types (`TransportContext`, `ProducerRegistry`, etc.)
+
+### Replace CDN Imports with Bundled Client Artifacts
+
+The current client imports `mediasoup-client` from a CDN on purpose, to simplify
+the PoC and avoid requiring a build step, to keep the focus on Mediasoup
+concepts. For production-grade usage, including it in a client bundle is
+recommended.
+
+Reasons to bundle instead of using CDN runtime imports:
+
+- **Version pinning and reproducibility**: dependencies are locked and deployed
+  with the app
+- **Faster startup and better caching strategy**: optimized chunking and local
+  asset caching
+- **Operational control**: no runtime dependency on third-party CDN availability
+  or behavior
+- **Build-time optimizations**: minification, tree-shaking, source maps, and
+  static analysis
+
+A practical evolution path is:
+
+1. Introduce a build tool (for example Vite or esbuild) for `public/`
+2. Move browser code to TypeScript modules
+3. Generate hashed production bundles and serve them with Fastify static assets
+4. Keep development mode simple with fast incremental builds
