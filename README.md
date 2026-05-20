@@ -108,38 +108,70 @@ WebRTC negotiation, encryption (DTLS), and connection establishment.
 
 #### Data Flow Summary
 
-```
-Client A                       Server                        Client B
-  │                              │                              │
-  ├─ POST / (create transport)─→ │                              │
-  │ ← (transport params) ────────┤                              │
-  │                              │                              │
-  ├─ POST /xxx/connect ────────→ │                              │
-  │ (DTLS handshake complete)    │                              │
-  │                              │                              │
-  ├─ POST /xxx/produceData ────→ │                              │
-  │ (sends params) ◄─ Direct     │                              │
-  │                Transport     │                              │
-  │ ◄─ (producer ID) ────────────┤                              │
-  │                              │                              │
-  │                              │ ← POST / (create transport)─ │
-  │                              │ ← (transport params) ─────── │
-  │                              │                              │
-  │                              │ ← POST /yyy/connect ──────── │
-  │                              │ (DTLS handshake)             │
-  │                              │                              │
-  │                              │ ← POST /yyy/consumeData───── │
-  │                              │   (subscribes to producer)   │
-  │                              │ ─→ (consumer params) ──────  │
-  │                              │                              │
-send("Hello")─┐                  │                              │
-              ├─→ WebRTC data──→ DirectTransport Consumer       │
-              │                  │      ↓                       │
-              │                  │ DirectTransport Producer     │
-              │                  │      │                       │
-              │                  └─ WebRTC data→ Receive ───────┘
-              │                                              │
-              │                                    onmessage("Hello")
+```mermaid
+sequenceDiagram
+    actor ClientA as Client A
+    participant Server
+    actor ClientB as Client B
+
+    Note over ClientA,ClientB: Connection Setup (Client A)
+    ClientA->>Server: POST / (create SendTransport)
+    activate Server
+    Server-->>ClientA: transport params (id, ICE, DTLS, SCTP)
+    deactivate Server
+
+    activate ClientA
+    ClientA->>Server: POST /xxx/connect (DTLS fingerprint)
+    deactivate ClientA
+
+    activate Server
+    Server-->>ClientA: 204 OK
+    deactivate Server
+
+    Note over ClientA,ClientB: Publish (Client A produces messages)
+    ClientA->>Server: POST /xxx/produceData (producer params)
+    activate Server
+        Note over Server: Create DirectTransport<br/>Consume DataProducer<br/>Store consumer
+    Server-->>ClientA: producer ID
+    deactivate Server
+
+    Note over ClientA,ClientB: Connection Setup (Client B)
+    ClientB->>Server: POST / (create RecvTransport)
+    activate Server
+    Server-->>ClientB: transport params (id, ICE, DTLS, SCTP)
+    deactivate Server
+
+    activate ClientB
+    ClientB->>Server: POST /yyy/connect (DTLS fingerprint)
+    deactivate ClientB
+
+    activate Server
+    Server-->>ClientB: 204 OK
+    deactivate Server
+
+    Note over ClientA,ClientB: Subscribe (Client B consumes from Client A)
+    ClientB->>Server: POST /yyy/consumeData (producer ID)
+    activate Server
+        Note over Server: Create DirectTransport<br/>Produce with relay logic<br/>Connect consumer→producer
+    Server-->>ClientB: consumer params
+    deactivate Server
+
+    Note over ClientA,ClientB: Message Exchange
+    ClientA->>ClientA: send("Hello")
+    activate ClientA
+    ClientA->>Server: WebRTC DataChannel message
+    deactivate ClientA
+
+    activate Server
+        Note over Server: DirectTransport Consumer<br/>receives message
+        Server->>Server: Forward to DirectTransport Producer
+    Server->>ClientB: WebRTC DataChannel message
+    deactivate Server
+
+    activate ClientB
+    ClientB->>ClientB: dataConsumer.on("message", ...)
+    ClientB->>ClientB: Display "Hello" in UI
+    deactivate ClientB
 ```
 
 ### Using Mediasoup Router
